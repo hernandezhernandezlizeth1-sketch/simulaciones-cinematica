@@ -1,1 +1,4 @@
-pygame
+pygame-ce
+numpy
+matplotlib
+pillow
