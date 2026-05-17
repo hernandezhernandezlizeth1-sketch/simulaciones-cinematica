@@ -2,179 +2,210 @@ import pygame
 import math
 from simulacion import Proyectil
 
-# Paleta Dark Mode Científico
-BG_COLOR = (32, 33, 35)         
-PANEL_COLOR = (43, 44, 48)      
-TEXT_COLOR = (240, 240, 240)
+BG_COLOR = (18, 20, 22)
+PANEL_COLOR = (28, 30, 34)
+TEXT_COLOR = (230, 235, 240)
+BLUE_LINE = (0, 160, 255)
 GREEN_NEON = (57, 255, 20)
-BLUE_ACCENT = (88, 166, 255)    
-ORANGE_ACCENT = (255, 158, 59)
-GRAY_LINE = (70, 70, 80)
-SLIDER_BG = (63, 63, 70)
+ORANGE = (255, 110, 0)
+RED = (255, 60, 60)
+YELLOW = (255, 210, 0)
+
+# CONFIGURACIÓN DE ESCALA REAL
+PPM = 7.0  # Píxeles por cada Metro real
+ORIGEN_PX_X = 330
+ORIGEN_PX_Y = 580  # El suelo está abajo
+
+def m_to_px(x_m, y_m):
+    x_px = ORIGEN_PX_X + (x_m * PPM)
+    y_px = ORIGEN_PX_Y - (y_m * PPM)
+    return int(x_px), int(y_px)
 
 class Slider:
-    def __init__(self, x, y, w, h, min_val, max_val, start_val):
+    def __init__(self, x, y, w, h, min_val, max_val, start_val, label, unit):
         self.rect = pygame.Rect(x, y, w, h)
-        self.min_val = min_val
-        self.max_val = max_val
+        self.min_val, self.max_val = min_val, max_val
         self.val = start_val
+        self.label = label
+        self.unit = unit
         self.dragging = False
 
-    def draw(self, superficie):
-        pygame.draw.rect(superficie, SLIDER_BG, self.rect, border_radius=self.rect.height//2)
+    def draw(self, surf, font):
+        pygame.draw.rect(surf, (55, 55, 60), self.rect, border_radius=4)
         ratio = (self.val - self.min_val) / (self.max_val - self.min_val)
-        ancho_relleno = int(ratio * self.rect.width)
-        if ancho_relleno > 0:
-            rect_relleno = pygame.Rect(self.rect.x, self.rect.y, ancho_relleno, self.rect.height)
-            pygame.draw.rect(superficie, BLUE_ACCENT, rect_relleno, border_radius=self.rect.height//2)
-        knob_x = self.rect.x + ancho_relleno
-        pygame.draw.circle(superficie, TEXT_COLOR, (knob_x, self.rect.centery), int(self.rect.height * 0.8))
+        fill_w = int(ratio * self.rect.width)
+        pygame.draw.rect(surf, BLUE_LINE, (self.rect.x, self.rect.y, fill_w, self.rect.height), border_radius=4)
+        pygame.draw.circle(surf, (255, 255, 255), (self.rect.x + fill_w, self.rect.centery), 7)
+        txt = font.render(f"{self.label}: {self.val:.2f} {self.unit}", True, TEXT_COLOR)
+        surf.blit(txt, (self.rect.x, self.rect.y - 22))
 
-    def manejar_eventos(self, evento):
-        modificado = False
-        if evento.type == pygame.MOUSEBUTTONDOWN:
-            if self.rect.collidepoint(evento.pos):
-                self.dragging = True
-                modificado = True
-        elif evento.type == pygame.MOUSEBUTTONUP:
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN and self.rect.collidepoint(event.pos):
+            self.dragging = True; return True
+        elif event.type == pygame.MOUSEBUTTONUP: 
             self.dragging = False
-        elif evento.type == pygame.MOUSEMOTION:
-            if self.dragging:
-                rel_x = max(0, min(evento.pos[0] - self.rect.x, self.rect.width))
-                ratio = rel_x / self.rect.width
-                self.val = self.min_val + ratio * (self.max_val - self.min_val)
-                modificado = True
-        return modificado
-
-def dibujar_cuadricula(pantalla, offsetX, offsetY, ancho, alto, espacio):
-    for x in range(offsetX, ancho, espacio):
-        pygame.draw.line(pantalla, GRAY_LINE, (x, 0), (x, alto), 1)
-    for y in range(0, alto, espacio):
-        if y > offsetY:
-            pygame.draw.line(pantalla, GRAY_LINE, (offsetX, y), (ancho, y), 1)
+        elif event.type == pygame.MOUSEMOTION and self.dragging:
+            rel = max(0, min(event.pos[0] - self.rect.x, self.rect.width))
+            self.val = self.min_val + (rel / self.rect.width) * (self.max_val - self.min_val)
+            return True
+        return False
 
 def renderizar():
     pygame.init()
-    ancho, alto = 1000, 600
-    panel_w = 360
-    pantalla = pygame.display.set_mode((ancho, alto))
-    pygame.display.set_caption("Animación de Cinemática del Punto")
+    sw, sh = 1150, 680
+    pantalla = pygame.display.set_mode((sw, sh))
+    pygame.display.set_caption("Laboratorio de Física de Precisión - Cámara Lenta")
+    
+    f_ui = pygame.font.SysFont("Consolas", 13)
+    f_bold = pygame.font.SysFont("Consolas", 14, bold=True)
+    f_title = pygame.font.SysFont("Consolas", 18, bold=True)
+    
+    proyectil = Proyectil(0.0)
+    
+    sliders = [
+        Slider(30, 80, 240, 8, 5.0, 40.0, 25.0, "Velocidad Inicial (v0)", "m/s"),
+        Slider(30, 150, 240, 8, 0.0, 90.0, 45.0, "Ángulo de Disparo (θ)", "°"),
+        Slider(30, 220, 240, 8, 0.0, 30.0, 10.0, "Altura Inicial (y0)", "m"),
+        Slider(30, 290, 240, 8, 1.0, 20.0, 9.81, "Aceleración Gravedad (g)", "m/s²")
+    ]
+
     reloj = pygame.time.Clock()
-    
-    fuente_titulo = pygame.font.SysFont("Segoe UI", 24, bold=True)
-    fuente_math = pygame.font.SysFont("Segoe UI", 18, italic=True)
-    fuente_ui = pygame.font.SysFont("Segoe UI", 16)
 
-    # Inicia en X ajustado al panel, Y en el suelo (500)
-    proyectil = Proyectil(panel_w + 40, 500)
-    
-    # Sliders
-    slider_v = Slider(30, 150, 240, 10, 20.0, 200.0, 90.0)
-    slider_a = Slider(30, 230, 240, 10, 0.0, 90.0, 45.0)
-    slider_g = Slider(30, 310, 240, 10, 20.0, 300.0, 98.0)
-
-    corriendo = True
-    while corriendo:
-        dt = reloj.tick(60) / 1000.0
+    while True:
+        dt = reloj.tick(60) / 1000.0 # 60 FPS reales
         
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
-                corriendo = False
-            
-            # Si mueves un slider, la simulación se reinicia para previsualizar
-            v_mod = slider_v.manejar_eventos(evento)
-            a_mod = slider_a.manejar_eventos(evento)
-            g_mod = slider_g.manejar_eventos(evento)
-            
-            if v_mod or a_mod or g_mod:
-                proyectil.detener()
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT: return
+            movido = False
+            for s in sliders:
+                if s.handle_event(e): movido = True
+            if movido: proyectil.reiniciar()
 
-            if evento.type == pygame.KEYDOWN:
-                if evento.key == pygame.K_SPACE:
-                    proyectil.disparar()
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_SPACE: proyectil.disparar()
+                if e.key == pygame.K_r: proyectil.reiniciar()
+                if e.key == pygame.K_n: proyectil.generar_objetivo()
 
-        # Actualizar variables desde los sliders
-        proyectil.vel_inicial = slider_v.val
-        proyectil.angulo_grados = slider_a.val
-        proyectil.gravedad = slider_g.val
+        # Vincular sliders
+        proyectil.vel_inicial = sliders[0].val
+        proyectil.angulo_grados = sliders[1].val
+        proyectil.altura_inicial = sliders[2].val
+        proyectil.gravedad = sliders[3].val
+        
+        if not proyectil.en_movimiento and not proyectil.hit and proyectil.fase == "PREPARACIÓN":
+            proyectil.y_m = proyectil.altura_inicial
 
         proyectil.actualizar(dt)
 
-        # Cálculos de datos físicos
-        angulo_rad = math.radians(proyectil.angulo_grados)
-        v0y = proyectil.vel_inicial * math.sin(angulo_rad)
-        v0x = proyectil.vel_inicial * math.cos(angulo_rad)
-        
-        tiempo_total_teorico = (2 * v0y) / proyectil.gravedad
-        distancia_max = v0x * tiempo_total_teorico
-        altura_max = (v0y ** 2) / (2 * proyectil.gravedad)
+        # Matrícula de ecuaciones
+        ang_rad = math.radians(proyectil.angulo_grados)
+        v0x = proyectil.vel_inicial * math.cos(ang_rad)
+        v0y = proyectil.vel_inicial * math.sin(ang_rad)
 
-        # --- DIBUJO ---
+        # --- RENDER DE ESCENARIO ---
         pantalla.fill(BG_COLOR)
         
-        # Cuadrícula del área de simulación
-        dibujar_cuadricula(pantalla, panel_w, 0, ancho, alto, 40)
+        # Malla métrica (Líneas cada 10 metros)
+        for m_x in range(0, 120, 10):
+            px_x, _ = m_to_px(m_x, 0)
+            pygame.draw.line(pantalla, (32, 35, 40), (px_x, 0), (px_x, sh))
+            if m_x % 20 == 0:
+                pantalla.blit(f_ui.render(f"{m_x}m", True, (90, 95, 100)), (px_x + 3, ORIGEN_PX_Y + 8))
+                
+        for m_y in range(0, 60, 10):
+            _, px_y = m_to_px(0, m_y)
+            pygame.draw.line(pantalla, (32, 35, 40), (ORIGEN_PX_X, px_y), (sw, px_y))
+            pantalla.blit(f_ui.render(f"{m_y}m", True, (90, 95, 100)), (ORIGEN_PX_X - 35, px_y - 7))
 
-        # Suelo
-        pygame.draw.line(pantalla, TEXT_COLOR, (panel_w, 500), (ancho, 500), 2)
+        # Línea de tierra
+        pygame.draw.line(pantalla, TEXT_COLOR, (ORIGEN_PX_X, ORIGEN_PX_Y), (sw, ORIGEN_PX_Y), 3)
 
-        # Cañón (Línea indicadora)
-        fin_canon_x = proyectil.x0 + 40 * math.cos(angulo_rad)
-        fin_canon_y = proyectil.y0 - 40 * math.sin(angulo_rad)
-        pygame.draw.line(pantalla, ORANGE_ACCENT, (proyectil.x0, proyectil.y0), (fin_canon_x, fin_canon_y), 4)
+        # Dibujar Plataforma de Altura Inicial
+        if proyectil.altura_inicial > 0:
+            base_px_x, base_px_y = m_to_px(0, 0)
+            top_px_x, top_px_y = m_to_px(0, proyectil.altura_inicial)
+            pygame.draw.rect(pantalla, (60, 65, 75), (base_px_x - 15, top_px_y, 15, base_px_y - top_px_y))
+            pygame.draw.line(pantalla, ORANGE, (base_px_x - 15, top_px_y), (base_px_x, top_px_y), 2)
 
-        # Dibujar Trayectoria Proyectada (Línea punteada)
-        puntos_trayectoria = proyectil.obtener_trayectoria_proyectada()
-        if len(puntos_trayectoria) > 1:
-            pygame.draw.aalines(pantalla, GRAY_LINE, False, puntos_trayectoria)
+        # Zona Objetivo
+        obj_x, obj_y = m_to_px(proyectil.objetivo_x_m, 0)
+        ancho_meta = int(5.0 * PPM) 
+        color_meta = GREEN_NEON if proyectil.hit else RED
+        pygame.draw.rect(pantalla, color_meta, (obj_x - ancho_meta//2, obj_y, ancho_meta, 8))
+        pantalla.blit(f_bold.render(f"META: {proyectil.objetivo_x_m:.2f}m", True, color_meta), (obj_x - 40, obj_y + 25))
 
-        # Dibujar Proyectil actual
-        pygame.draw.circle(pantalla, GREEN_NEON, (int(proyectil.x), int(proyectil.y)), 8)
-        pygame.draw.circle(pantalla, GREEN_NEON, (int(proyectil.x), int(proyectil.y)), 14, 2) # Brillo
+        # Vector de predicción (Parábola teórica completa)
+        pts_m = proyectil.obtener_trayectoria_proyectada()
+        pts_px = [m_to_px(pt[0], pt[1]) for pt in pts_m]
+        if len(pts_px) > 1: pygame.draw.aalines(pantalla, (70, 75, 80), False, pts_px)
 
-        # --- PANEL UI ---
-        pygame.draw.rect(pantalla, PANEL_COLOR, (0, 0, panel_w, alto))
-        pygame.draw.rect(pantalla, (20, 20, 22), (0, 0, panel_w, alto), 2) # Borde del panel
+        # Proyectil
+        p_x, p_y = m_to_px(proyectil.x_m, proyectil.y_m)
+        pygame.draw.circle(pantalla, GREEN_NEON, (p_x, p_y), 8)
+        pygame.draw.circle(pantalla, BLUE_LINE, (p_x, p_y), 13, 1)
 
-        tit = fuente_titulo.render("Cinemática del Punto", True, TEXT_COLOR)
-        pantalla.blit(tit, (30, 30))
+        # --- INTERFAZ PANEL IZQUIERDO ---
+        pygame.draw.rect(pantalla, PANEL_COLOR, (0, 0, 300, sh))
+        pygame.draw.rect(pantalla, (15, 15, 15), (0, 0, 300, sh), 3)
+        pantalla.blit(f_title.render("PARÁMETROS TIERRA", True, BLUE_LINE), (20, 20))
         
-        sub = fuente_math.render("Tiro Parabólico Interactivo", True, BLUE_ACCENT)
-        pantalla.blit(sub, (30, 65))
+        for s in sliders: s.draw(pantalla, f_ui)
+        
+        pygame.draw.line(pantalla, (70,70,70), (20, 340), (280, 340))
+        pantalla.blit(f_bold.render("CONTROLES:", True, ORANGE), (25, 360))
+        pantalla.blit(f_ui.render("[ESPACIO] Lanzar (Cámara Lenta)", True, TEXT_COLOR), (25, 385))
+        pantalla.blit(f_ui.render("[R] Reiniciar variables", True, TEXT_COLOR), (25, 410))
+        pantalla.blit(f_ui.render("[N] Reubicar objetivo", True, TEXT_COLOR), (25, 435))
+        
+        # Indicador visual del factor
+        pantalla.blit(f_bold.render("VELOCIDAD DEL MOTOR:", True, YELLOW), (25, 480))
+        pantalla.blit(f_ui.render(f"Tiempo real desacelerado al 20%", True, TEXT_COLOR), (25, 505))
+        pygame.draw.rect(pantalla, YELLOW, (25, 530, 240, 6), border_radius=3)
 
-        # Dibujar Controles
-        textos_sliders = [
-            (f"Velocidad Inicial (v0): {slider_v.val:.1f} px/s", 125, slider_v),
-            (f"Ángulo de Disparo (θ): {slider_a.val:.1f}°", 205, slider_a),
-            (f"Gravedad (g): {slider_g.val:.1f} px/s²", 285, slider_g)
+        # --- EXPLICADOR ANALÍTICO SEGUNDO A SEGUNDO ---
+        box_rect = pygame.Rect(320, 20, 480, 175)
+        s_box = pygame.Surface((box_rect.width, box_rect.height), pygame.SRCALPHA)
+        s_box.fill((10, 10, 12, 230))
+        pantalla.blit(s_box, (box_rect.x, box_rect.y))
+        pygame.draw.rect(pantalla, BLUE_LINE, box_rect, 2, border_radius=4)
+
+        seg_actual = math.floor(proyectil.tiempo_simulado)
+        vy_t = v0y - (proyectil.gravedad * proyectil.tiempo_simulado)
+
+        textos = [
+            f"REPORTE: {proyectil.fase}",
+            f"Reloj del Proyectil: {proyectil.tiempo_simulado:.2f} segundos",
+            f"Posición actual   : X = {proyectil.x_m:.2f}m  |  Y = {proyectil.y_m:.2f}m",
+            f"Vectores de Vel.  : Vx = {v0x:.2f}m/s | Vy = {vy_t:.2f}m/s"
         ]
 
-        for texto, pos_y, slider_obj in textos_sliders:
-            sup_texto = fuente_ui.render(texto, True, TEXT_COLOR)
-            pantalla.blit(sup_texto, (30, pos_y))
-            slider_obj.draw(pantalla)
+        # Añadir análisis físico dinámico según la línea de tiempo
+        if proyectil.fase == "PREPARACIÓN":
+            textos.append("FÓRMULA BASE: y(t) = y0 + v0·sin(θ)t - ½gt²")
+            textos.append("El proyectil se sitúa estático esperando ignición.")
+            color_fase = TEXT_COLOR
+        else:
+            color_fase = GREEN_NEON if "META" in proyectil.fase else (YELLOW if "ÁPICE" in proyectil.fase else ORANGE)
+            if seg_actual == 0:
+                textos.append("SITUACIÓN [0s a 1s]: El impulso inicial domina.")
+                textos.append("Fórmula horizontal (MRU): x = v0·cos(θ)·t")
+            elif seg_actual == 1:
+                textos.append("SITUACIÓN [1s a 2s]: La gravedad drena energía.")
+                textos.append("Cada segundo Vy disminuye exactamente g m/s.")
+            elif seg_actual == 2:
+                textos.append("SITUACIÓN [2s a 3s]: Energía potencial en aumento.")
+                textos.append("La velocidad en X jamás cambia por la ausencia de aire.")
+            elif seg_actual == 3:
+                textos.append("SITUACIÓN [3s a 4s]: Curvatura parabólica crítica.")
+                textos.append("Ecuación vertical: y = y0 + v0y·t - 0.5·g·t²")
+            else:
+                textos.append("SITUACIÓN [> 4s]: Descenso por energía gravitatoria.")
+                textos.append("El vector Vy apunta hacia abajo y acelera de forma constante.")
 
-        # Separador
-        pygame.draw.line(pantalla, GRAY_LINE, (30, 360), (panel_w - 30, 360), 1)
-
-        # Datos en tiempo real
-        sup_datos_tit = fuente_ui.render("Datos Físicos (Predicción):", True, ORANGE_ACCENT)
-        pantalla.blit(sup_datos_tit, (30, 380))
-
-        datos = [
-            f"Altura Máxima: {altura_max:.1f} px",
-            f"Alcance Máximo: {distancia_max:.1f} px",
-            f"Tiempo de Vuelo: {tiempo_total_teorico:.2f} s"
-        ]
-        
-        for i, dato in enumerate(datos):
-            sup_dato = fuente_ui.render(dato, True, TEXT_COLOR)
-            pantalla.blit(sup_dato, (30, 415 + i * 25))
-
-        # Botón / Instrucción
-        pygame.draw.rect(pantalla, BLUE_ACCENT, (30, 520, panel_w - 60, 40), border_radius=5)
-        sup_btn = fuente_titulo.render("PRESIONA ESPACIO", True, BG_COLOR)
-        pantalla.blit(sup_btn, (75, 525))
+        for i, linea in enumerate(textos):
+            col = color_fase if i == 0 else TEXT_COLOR
+            font = f_bold if i == 0 or i == 4 else f_ui
+            pantalla.blit(font.render(linea, True, col), (box_rect.x + 15, box_rect.y + 15 + (i * 24)))
 
         pygame.display.flip()
 

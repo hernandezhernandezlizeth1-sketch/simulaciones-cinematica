@@ -1,27 +1,50 @@
 import math
 
-class OsciladorAngular:
+class MotorRigido:
     def __init__(self):
-        self.frecuencia = 1.0  # f: vueltas por segundo
-        self.tiempo = 0.0
-        self.historial_y = []  # Para dibujar la onda
-        self.max_puntos = 300  # Resolución de la estela
+        self.angulo_rad = 0.0
+        self.vel_angular = 0.0      # ω (rad/s)
+        self.acel_angular = 0.0     # α (rad/s²)
+        
+        # Parámetros del motor (Controlables)
+        self.torque_motor = 50.0    # Fuerza de giro (N·m)
+        self.inercia = 10.0         # Resistencia a girar (Masa/Tamaño) (kg·m²)
+        self.friccion = 2.0         # Rozamiento de los baleros
+        
+        self.motor_encendido = False
+        self.fase = "SISTEMA DETENIDO"
+
+    def toggle_motor(self):
+        self.motor_encendido = not self.motor_encendido
 
     def actualizar(self, dt):
-        self.tiempo += dt
+        # 1. Calcular el torque neto (Fuerza del motor menos la fricción)
+        torque_neto = 0.0
+        if self.motor_encendido:
+            torque_neto += self.torque_motor
         
-        # Velocidad angular: ω = 2πf
-        omega = 2 * math.pi * self.frecuencia
+        # La fricción frena proporcionalmente a qué tan rápido gira
+        torque_neto -= self.friccion * self.vel_angular
         
-        # Ángulo actual: θ = ωt
-        angulo = omega * self.tiempo
+        # 2. Segunda Ley de Newton para rotación: α = τ / I
+        self.acel_angular = torque_neto / self.inercia
         
-        # Proyección en Y (normalizada de -1 a 1)
-        y_norm = math.sin(angulo)
+        # 3. Integración cinemática
+        self.vel_angular += self.acel_angular * dt
         
-        # Guardamos el punto al inicio de la lista
-        self.historial_y.insert(0, y_norm)
-        if len(self.historial_y) > self.max_puntos:
-            self.historial_y.pop()
+        # Detener completamente si está apagado y ya gira muy lento
+        if not self.motor_encendido and self.vel_angular < 0.05:
+            self.vel_angular = 0.0
+            self.acel_angular = 0.0
+            self.fase = "SISTEMA DETENIDO"
+        else:
+            self.angulo_rad += self.vel_angular * dt
             
-        return angulo, y_norm
+            # Detectar la fase para la UI
+            if self.motor_encendido:
+                if self.acel_angular > 0.5:
+                    self.fase = "ACELERANDO (ARRANQUE)"
+                else:
+                    self.fase = "VELOCIDAD CONSTANTE (EQUILIBRIO)"
+            else:
+                self.fase = "FRENANDO POR FRICCIÓN"
