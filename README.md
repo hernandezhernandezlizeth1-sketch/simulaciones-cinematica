@@ -1,4 +1,4 @@
-# 🚀 Laboratorio de Simulaciones Físicas
+#  Laboratorio de Simulaciones Físicas
 
 Este proyecto es un conjunto de simulaciones interactivas y analíticas desarrolladas en Python. Está diseñado para visualizar y comprender fenómenos físicos aplicados a la ingeniería mediante dos enfoques:
 1. **Motores Interactivos en Tiempo Real** (Usando Pygame).
@@ -13,7 +13,6 @@ Simula el movimiento de un proyectil sujeto a la gravedad terrestre ($g = 9.81 m
 - **Interactivo:** Ejecuta `python cinematica_punto/main.py`
 - **Render GIF:** Ejecuta `python cinematica_punto/generar_gif_final.py`
 
-*(Coloca aquí tu GIF de demostración)*
 ![Animación de Tiro Parabólico](cinematica_punto/cinematica_laboratorio_lento.gif)
 
 ---
@@ -23,7 +22,6 @@ Demostración de un vehículo desplazándose a velocidad constante (sin acelerac
 - **Interactivo:** Ejecuta `python mru/main.py`
 - **Render GIF:** Ejecuta `python mru/mru_laboratorio_lento.py`
 
-*(Coloca aquí tu GIF de demostración)*
 ![Animación de MRU](movimiento_rectilineo/mru_laboratorio_lento.gif)
 
 ---
@@ -33,7 +31,6 @@ Simulador de un motor industrial/rotor. Aplica la Segunda Ley de Newton para rot
 - **Interactivo:** Ejecuta `python cuerpo_rigido/main.py`
 - **Render GIF:** Ejecuta `python cuerpo_rigido/rigido_laboratorio_lento.py`
 
-*(Coloca aquí tu GIF de demostración)*
 ![Animación de Cuerpo Rígido](cuerpo_rigido/rigido_laboratorio_lento.gif)
 
 ---
@@ -42,7 +39,7 @@ Simulador de un motor industrial/rotor. Aplica la Segunda Ley de Newton para rot
 
 1. **Clonar el repositorio:**
    ```bash
-   git clone <tu-url-del-repo>
+   git clone https://github.com/hernandezhernandezlizeth1-sketch/simulaciones-cinematica.git
    cd simulaciones-cinematica
 
 # Cómo correrlo
